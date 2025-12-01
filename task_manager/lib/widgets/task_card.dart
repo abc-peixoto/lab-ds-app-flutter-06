@@ -143,6 +143,40 @@ class TaskCard extends StatelessWidget {
                       spacing: 8,
                       runSpacing: 4,
                       children: [
+                        // Sync Status
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: task.isSynced ? Colors.green : Colors.grey,
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                task.isSynced ? Icons.check_circle : Icons.cloud_off,
+                                size: 14,
+                                color: task.isSynced ? Colors.green : Colors.grey,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                task.isSynced ? 'Sincronizado' : 'Pendente',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: task.isSynced ? Colors.green : Colors.grey,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
                         // Categoria
                         if (category != null)
                           Container(

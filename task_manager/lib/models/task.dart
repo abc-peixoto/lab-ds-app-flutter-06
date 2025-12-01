@@ -13,6 +13,8 @@ class Task {
   final bool completed;
   final String priority;
   final DateTime createdAt;
+  final DateTime updatedAt;
+  final bool isSynced;
   final DateTime? dueDate;
   final String? categoryId;
 
@@ -35,6 +37,8 @@ class Task {
     this.completed = false,
     this.priority = 'medium',
     DateTime? createdAt,
+    DateTime? updatedAt,
+    this.isSynced = false,
     this.dueDate,
     this.categoryId,
     this.photoPath,
@@ -44,7 +48,8 @@ class Task {
     this.longitude,
     this.locationName,
   })  : id = id ?? const Uuid().v4(),
-        createdAt = createdAt ?? DateTime.now();
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   // Getters auxiliares
   bool get hasPhoto => photoPath != null && photoPath!.isNotEmpty;
@@ -59,6 +64,8 @@ class Task {
       'completed': completed ? 1 : 0,
       'priority': priority,
       'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+      'isSynced': isSynced ? 1 : 0,
       'dueDate': dueDate?.toIso8601String(),
       'categoryId': categoryId,
       'photoPath': photoPath,
@@ -78,6 +85,8 @@ class Task {
       completed: map['completed'] == 1,
       priority: map['priority'] ?? 'medium',
       createdAt: DateTime.parse(map['createdAt']),
+      updatedAt: DateTime.parse(map['updatedAt']),
+      isSynced: map['isSynced'] == 1,
       dueDate: map['dueDate'] != null ? DateTime.parse(map['dueDate']) : null,
       categoryId: map['categoryId'],
       photoPath: map['photoPath'] as String?,
@@ -104,6 +113,8 @@ class Task {
     double? latitude,
     double? longitude,
     String? locationName,
+    DateTime? updatedAt,
+    bool? isSynced,
   }) {
     return Task(
       id: id,
@@ -112,6 +123,8 @@ class Task {
       completed: completed ?? this.completed,
       priority: priority ?? this.priority,
       createdAt: createdAt,
+      updatedAt: updatedAt ?? DateTime.now(),
+      isSynced: isSynced ?? this.isSynced,
       dueDate: dueDate ?? this.dueDate,
       categoryId: categoryId ?? this.categoryId,
       photoPath: photoPath ?? this.photoPath,
