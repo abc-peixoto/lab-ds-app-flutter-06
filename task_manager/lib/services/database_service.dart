@@ -1,7 +1,13 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/task.dart';
-import 'dart:convert';
+
+
+///Esta é a classe central para a lógica de banco de dados. Ela segue o padrão Singleton, garantindo que tenhamos apenas uma instância da conexão com o banco em todo o app.
+
+///_initDB(): Inicializa o banco de dados, define seu nome e caminho.
+///_createDB(): É chamado na primeira vez que o banco é criado e executa o comando SQL para criar a tabela tasks com suas respectivas colunas.
+///Métodos CRUD: create, read, readAll, update, e delete são os métodos públicos que nossa UI usará para interagir com o banco de dados, abstraindo a complexidade das queries SQL.
 
 class DatabaseService {
   static final DatabaseService instance = DatabaseService._init();
@@ -21,7 +27,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 4,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -36,8 +42,6 @@ class DatabaseService {
         completed INTEGER NOT NULL,
         priority TEXT NOT NULL,
         createdAt TEXT NOT NULL,
-        updatedAt TEXT NOT NULL,
-        isSynced INTEGER NOT NULL DEFAULT 0,
         dueDate TEXT,
         categoryId TEXT,
         photoPath TEXT,
@@ -46,16 +50,6 @@ class DatabaseService {
         latitude REAL,
         longitude REAL,
         locationName TEXT
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE sync_queue (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        taskId TEXT NOT NULL,
-        operation TEXT NOT NULL,
-        payload TEXT,
-        createdAt TEXT NOT NULL
       )
     ''');
   }
@@ -75,49 +69,13 @@ class DatabaseService {
       await db.execute('ALTER TABLE tasks ADD COLUMN longitude REAL');
       await db.execute('ALTER TABLE tasks ADD COLUMN locationName TEXT');
     }
-    if (oldVersion < 5) {
-      await db.execute('ALTER TABLE tasks ADD COLUMN updatedAt TEXT NOT NULL DEFAULT \'\'');
-      await db.execute('ALTER TABLE tasks ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 0');
-      await db.execute('''
-        CREATE TABLE sync_queue (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          taskId TEXT NOT NULL,
-          operation TEXT NOT NULL, 
-          payload TEXT,
-          createdAt TEXT NOT NULL
-        )
-      ''');
-    }
     print('✅ Banco migrado de v$oldVersion para v$newVersion');
   }
 
-  Future<void> addToSyncQueue(String taskId, String operation, {Map<String, dynamic>? payload}) async {
-    final db = await database;
-    await db.insert('sync_queue', {
-      'taskId': taskId,
-      'operation': operation,
-      'payload': payload != null ? jsonEncode(payload) : null,
-      'createdAt': DateTime.now().toIso8601String(),
-    });
-  }
-
-  Future<List<Map<String, dynamic>>> getPendingSync() async {
-    final db = await database;
-    return await db.query('sync_queue', orderBy: 'createdAt ASC');
-  }
-
-  Future<void> removeFromSyncQueue(int id) async {
-    final db = await database;
-    await db.delete('sync_queue', where: 'id = ?', whereArgs: [id]);
-  }
-
-
   Future<Task> create(Task task) async {
     final db = await database;
-    final taskToInsert = task.copyWith(isSynced: false, updatedAt: DateTime.now());
-    await db.insert('tasks', taskToInsert.toMap());
-    await addToSyncQueue(task.id, 'CREATE', payload: taskToInsert.toMap());
-    return taskToInsert;
+    await db.insert('tasks', task.toMap());
+    return task;
   }
 
   Future<Task?> read(String id) async {
@@ -145,28 +103,24 @@ class DatabaseService {
 
   Future<int> update(Task task) async {
     final db = await database;
-    final taskToUpdate = task.copyWith(isSynced: false, updatedAt: DateTime.now());
-    final result = await db.update(
+    return db.update(
       'tasks',
-      taskToUpdate.toMap(),
+      task.toMap(),
       where: 'id = ?',
       whereArgs: [task.id],
     );
-    await addToSyncQueue(task.id, 'UPDATE', payload: taskToUpdate.toMap());
-    return result;
   }
 
   Future<int> delete(String id) async {
     final db = await database;
-    final result = await db.delete(
+    return await db.delete(
       'tasks',
       where: 'id = ?',
       whereArgs: [id],
     );
-    await addToSyncQueue(id, 'DELETE');
-    return result;
   }
 
+  // Método especial: buscar tarefas por proximidade
   Future<List<Task>> getTasksNearLocation({
     required double latitude,
     required double longitude,
@@ -177,6 +131,7 @@ class DatabaseService {
     return allTasks.where((task) {
       if (!task.hasLocation) return false;
 
+      // Cálculo de distância usando fórmula de Haversine (simplificada)
       final latDiff = (task.latitude! - latitude).abs();
       final lonDiff = (task.longitude! - longitude).abs();
       final distance = ((latDiff * 111000) + (lonDiff * 111000)) / 2;

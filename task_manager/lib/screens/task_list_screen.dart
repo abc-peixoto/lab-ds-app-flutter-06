@@ -1,5 +1,3 @@
-import 'dart:async';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import '../models/task.dart';
 import '../models/category.dart';
@@ -7,7 +5,6 @@ import '../services/database_service.dart';
 import '../services/sensor_service.dart';
 import '../services/location_service.dart';
 import '../services/camera_service.dart';
-import '../services/connectivity_service.dart';
 import '../widgets/task_card.dart';
 import 'task_form_screen.dart';
 
@@ -24,7 +21,6 @@ class _TaskListScreenState extends State<TaskListScreen> {
   String? _categoryFilter = 'all_categories'; // 'all_categories' = todas, 'no_category' = sem categoria, id = categoria específica
   bool _isLoading = false;
   bool _orderByDueDate = false;
-  StreamSubscription? _connectivitySubscription;
 
   @override
   void initState() {
@@ -32,25 +28,13 @@ class _TaskListScreenState extends State<TaskListScreen> {
     _loadTasks();
     _checkOverdueTasks();
     _setupShakeDetection();
-    _setupConnectivityListener();
   }
 
   @override
   void dispose() {
     SensorService.instance.stop();
-    _connectivitySubscription?.cancel();
     super.dispose();
   }
-
-  void _setupConnectivityListener() {
-    _connectivitySubscription = ConnectivityService().connectivityStream.listen((result) {
-      // Quando a conexão volta, recarregamos as tarefas para atualizar a UI
-      if (!result.contains(ConnectivityResult.none)) {
-        _loadTasks();
-      }
-    });
-  }
-
 
   // SHAKE DETECTION
   void _setupShakeDetection() {
