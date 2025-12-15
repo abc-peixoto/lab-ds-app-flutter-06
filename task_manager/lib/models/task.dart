@@ -1,11 +1,5 @@
 import 'package:uuid/uuid.dart';
 
-///Este arquivo define a estrutura de dados da nossa tarefa. A classe Task representa o nosso "modelo" (Model). Ela contém os campos que uma tarefa terá (id, título, etc.) e métodos úteis para conversão de dados:
-
-///toMap(): Converte o objeto Task em um Map, que é o formato que o sqflite usa para inserir dados no banco.
-///fromMap(): Faz o processo inverso, criando um objeto Task a partir de um Map vindo do banco de dados.
-///copyWith(): Um método auxiliar para criar uma cópia de uma tarefa, modificando apenas alguns campos, útil para atualizações.
-
 class Task {
   final String id;
   final String title;
@@ -28,6 +22,13 @@ class Task {
   final double? longitude;
   final String? locationName;
 
+  // OFFLINE-FIRST: Campos de sincronização
+  final String userId;
+  final DateTime updatedAt;
+  final int version;
+  final SyncStatus syncStatus;
+  final DateTime? localUpdatedAt;
+
   Task({
     String? id,
     required this.title,
@@ -43,10 +44,15 @@ class Task {
     this.latitude,
     this.longitude,
     this.locationName,
+    this.userId = 'user1',
+    DateTime? updatedAt,
+    this.version = 1,
+    this.syncStatus = SyncStatus.synced,
+    this.localUpdatedAt,
   })  : id = id ?? const Uuid().v4(),
-        createdAt = createdAt ?? DateTime.now();
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
-  // Getters auxiliares
   bool get hasPhoto => photoPath != null && photoPath!.isNotEmpty;
   bool get hasLocation => latitude != null && longitude != null;
   bool get wasCompletedByShake => completedBy == 'shake';
@@ -67,6 +73,11 @@ class Task {
       'latitude': latitude,
       'longitude': longitude,
       'locationName': locationName,
+      'userId': userId,
+      'updatedAt': updatedAt.toIso8601String(),
+      'version': version,
+      'syncStatus': syncStatus.toString(),
+      'localUpdatedAt': localUpdatedAt?.toIso8601String(),
     };
   }
 
@@ -88,6 +99,18 @@ class Task {
       latitude: map['latitude'] as double?,
       longitude: map['longitude'] as double?,
       locationName: map['locationName'] as String?,
+      userId: map['userId'] ?? 'user1',
+      updatedAt: map['updatedAt'] != null
+          ? DateTime.parse(map['updatedAt'])
+          : DateTime.parse(map['createdAt']),
+      version: map['version'] ?? 1,
+      syncStatus: SyncStatus.values.firstWhere(
+        (e) => e.toString() == map['syncStatus'],
+        orElse: () => SyncStatus.synced,
+      ),
+      localUpdatedAt: map['localUpdatedAt'] != null
+          ? DateTime.parse(map['localUpdatedAt'] as String)
+          : null,
     );
   }
 
@@ -104,6 +127,11 @@ class Task {
     double? latitude,
     double? longitude,
     String? locationName,
+    String? userId,
+    DateTime? updatedAt,
+    int? version,
+    SyncStatus? syncStatus,
+    DateTime? localUpdatedAt,
   }) {
     return Task(
       id: id,
@@ -120,11 +148,85 @@ class Task {
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       locationName: locationName ?? this.locationName,
+      userId: userId ?? this.userId,
+      updatedAt: updatedAt ?? this.updatedAt,
+      version: version ?? this.version,
+      syncStatus: syncStatus ?? this.syncStatus,
+      localUpdatedAt: localUpdatedAt ?? this.localUpdatedAt,
     );
   }
 
   bool get isOverdue {
     if (dueDate == null || completed) return false;
     return DateTime.now().isAfter(dueDate!);
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'completed': completed,
+      'priority': priority,
+      'userId': userId,
+      'createdAt': createdAt.millisecondsSinceEpoch,
+      'updatedAt': updatedAt.millisecondsSinceEpoch,
+      'version': version,
+    };
+  }
+
+  factory Task.fromJson(Map<String, dynamic> json) {
+    return Task(
+      id: json['id'],
+      title: json['title'],
+      description: json['description'] ?? '',
+      completed: json['completed'] ?? false,
+      priority: json['priority'] ?? 'medium',
+      userId: json['userId'] ?? 'user1',
+      createdAt: DateTime.fromMillisecondsSinceEpoch(json['createdAt']),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(json['updatedAt']),
+      version: json['version'] ?? 1,
+      syncStatus: SyncStatus.synced,
+    );
+  }
+
+  @override
+  String toString() {
+    return 'Task(id: $id, title: $title, syncStatus: $syncStatus)';
+  }
+}
+
+enum SyncStatus {
+  synced,    // Sincronizada com servidor
+  pending,   // Pendente de sincronização
+  conflict,  // Conflito detectado
+  error,     // Erro na sincronização
+}
+
+extension SyncStatusExtension on SyncStatus {
+  String get displayName {
+    switch (this) {
+      case SyncStatus.synced:
+        return 'Sincronizada';
+      case SyncStatus.pending:
+        return 'Pendente';
+      case SyncStatus.conflict:
+        return 'Conflito';
+      case SyncStatus.error:
+        return 'Erro';
+    }
+  }
+
+  String get icon {
+    switch (this) {
+      case SyncStatus.synced:
+        return '✓';
+      case SyncStatus.pending:
+        return '⏱';
+      case SyncStatus.conflict:
+        return '⚠';
+      case SyncStatus.error:
+        return '✗';
+    }
   }
 }

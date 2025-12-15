@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import '../models/task.dart';
 import '../models/category.dart';
 import '../services/database_service.dart';
+import '../services/sync_service.dart';
+import '../services/connectivity_service.dart';
 import '../services/sensor_service.dart';
 import '../services/location_service.dart';
 import '../services/camera_service.dart';
 import '../widgets/task_card.dart';
+import '../widgets/sync_indicator.dart';
 import 'task_form_screen.dart';
+import 'sync_status_screen.dart';
 
 class TaskListScreen extends StatefulWidget {
   const TaskListScreen({super.key});
@@ -21,6 +25,9 @@ class _TaskListScreenState extends State<TaskListScreen> {
   String? _categoryFilter = 'all_categories'; // 'all_categories' = todas, 'no_category' = sem categoria, id = categoria específica
   bool _isLoading = false;
   bool _orderByDueDate = false;
+  
+  final SyncService _syncService = SyncService();
+  final ConnectivityService _connectivity = ConnectivityService.instance;
 
   @override
   void initState() {
@@ -28,11 +35,27 @@ class _TaskListScreenState extends State<TaskListScreen> {
     _loadTasks();
     _checkOverdueTasks();
     _setupShakeDetection();
+    _setupSync();
+  }
+  
+  void _setupSync() {
+    // Iniciar auto-sync
+    _syncService.startAutoSync();
+    
+    // Escutar mudanças de conectividade
+    _connectivity.connectivityStream.listen((isOnline) {
+      if (isOnline) {
+        print('🟢 Conexão restaurada - iniciando sync');
+        _syncService.sync();
+        _loadTasks(); // Recarregar tarefas após sync
+      }
+    });
   }
 
   @override
   void dispose() {
     SensorService.instance.stop();
+    _syncService.stopAutoSync();
     super.dispose();
   }
 
@@ -115,7 +138,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
         completedBy: 'shake',
       );
 
-      await DatabaseService.instance.update(updated);
+      // Usar SyncService para atualizar (adiciona à fila de sync)
+      await _syncService.updateTask(updated);
       Navigator.pop(context);
       await _loadTasks();
 
@@ -253,7 +277,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
       completedAt: !task.completed ? DateTime.now() : null,
       completedBy: !task.completed ? 'manual' : null,
     );
-    await DatabaseService.instance.update(updated);
+    // Usar SyncService para atualizar (adiciona à fila de sync)
+    await _syncService.updateTask(updated);
     await _loadTasks();
   }
 
@@ -284,7 +309,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
           await CameraService.instance.deletePhoto(task.photoPath!);
         }
 
-        await DatabaseService.instance.delete(task.id);
+        // Usar SyncService para deletar (adiciona à fila de sync)
+        await _syncService.deleteTask(task.id);
         await _loadTasks();
 
         if (mounted) {
@@ -333,6 +359,47 @@ class _TaskListScreenState extends State<TaskListScreen> {
         foregroundColor: Colors.white,
         elevation: 2,
         actions: [
+          // Indicador de sincronização
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Center(
+              child: SyncIndicator(connectivity: _connectivity),
+            ),
+          ),
+          // Botão de sincronização manual
+          IconButton(
+            icon: const Icon(Icons.sync),
+            onPressed: _connectivity.isOnline ? () async {
+              final result = await _syncService.sync();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      result.success
+                          ? '✅ Sincronização concluída'
+                          : '❌ ${result.message}',
+                    ),
+                    backgroundColor: result.success ? Colors.green : Colors.red,
+                  ),
+                );
+              }
+              await _loadTasks();
+            } : null,
+            tooltip: 'Sincronizar',
+          ),
+          // Botão de status de sincronização
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SyncStatusScreen(),
+                ),
+              );
+            },
+            tooltip: 'Status de Sincronização',
+          ),
           // Ordenação
           IconButton(
             icon: Icon(_orderByDueDate ? Icons.sort_by_alpha : Icons.sort),
@@ -558,7 +625,12 @@ class _TaskListScreenState extends State<TaskListScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : RefreshIndicator(
-                    onRefresh: _loadTasks,
+                    onRefresh: () async {
+                      if (_connectivity.isOnline) {
+                        await _syncService.sync();
+                      }
+                      await _loadTasks();
+                    },
                     child: filteredTasks.isEmpty
                         ? ListView(
                             physics: const AlwaysScrollableScrollPhysics(),

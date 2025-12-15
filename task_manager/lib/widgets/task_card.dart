@@ -57,6 +57,19 @@ class TaskCard extends StatelessWidget {
     }
   }
 
+  Color _getSyncStatusColor(SyncStatus status) {
+    switch (status) {
+      case SyncStatus.synced:
+        return Colors.green;
+      case SyncStatus.pending:
+        return Colors.orange;
+      case SyncStatus.conflict:
+        return Colors.red;
+      case SyncStatus.error:
+        return Colors.red;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
@@ -367,6 +380,45 @@ class TaskCard extends StatelessWidget {
                               ],
                             ),
                           ),
+
+                        // Status de Sincronização
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: _getSyncStatusColor(task.syncStatus)
+                                .withOpacity(0.1),
+                            border: Border.all(
+                              color: _getSyncStatusColor(task.syncStatus),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                task.syncStatus.icon,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: _getSyncStatusColor(task.syncStatus),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                task.syncStatus.displayName,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: _getSyncStatusColor(task.syncStatus),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
 
                         // Data de Criação
                         Row(

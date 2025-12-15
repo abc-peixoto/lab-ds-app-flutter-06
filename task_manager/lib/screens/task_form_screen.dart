@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/task.dart';
 import '../models/category.dart';
 import '../services/database_service.dart';
+import '../services/sync_service.dart';
 import '../services/camera_service.dart';
 import '../services/location_service.dart';
 import '../widgets/location_picker.dart';
@@ -35,6 +36,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   double? _latitude;
   double? _longitude;
   String? _locationName;
+  
+  final SyncService _syncService = SyncService();
 
   @override
   void initState() {
@@ -71,7 +74,6 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
     try {
       if (widget.task == null) {
-        // Criar nova tarefa
         final newTask = Task(
           title: _titleController.text.trim(),
           description: _descriptionController.text.trim(),
@@ -84,7 +86,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           longitude: _longitude,
           locationName: _locationName,
         );
-        await DatabaseService.instance.create(newTask);
+        await _syncService.createTask(newTask);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -96,7 +98,6 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           );
         }
       } else {
-        // Atualizar tarefa existente
         final updatedTask = widget.task!.copyWith(
           title: _titleController.text.trim(),
           description: _descriptionController.text.trim(),
@@ -109,7 +110,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           longitude: _longitude,
           locationName: _locationName,
         );
-        await DatabaseService.instance.update(updatedTask);
+        await _syncService.updateTask(updatedTask);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -160,7 +161,6 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Campo de Título
                     TextFormField(
                       controller: _titleController,
                       decoration: const InputDecoration(
@@ -184,7 +184,6 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
                     const SizedBox(height: 16),
 
-                    // Campo de Descrição
                     TextFormField(
                       controller: _descriptionController,
                       decoration: const InputDecoration(
@@ -201,7 +200,6 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
                     const SizedBox(height: 16),
 
-                    // Dropdown de Categoria
                     DropdownButtonFormField<String>(
                       decoration: const InputDecoration(
                         labelText: 'Categoria',
@@ -239,7 +237,6 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
                     const SizedBox(height: 16),
 
-                    // Dropdown de Prioridade
                     DropdownButtonFormField<String>(
                       decoration: const InputDecoration(
                         labelText: 'Prioridade',
@@ -298,7 +295,6 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
                     const SizedBox(height: 16),
 
-                    // Campo de Data de Vencimento
                     Card(
                       child: ListTile(
                         leading: const Icon(Icons.calendar_today),
@@ -333,7 +329,6 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
                     const SizedBox(height: 16),
 
-                    // Switch de Completo
                     Card(
                       child: SwitchListTile(
                         title: const Text('Tarefa Completa'),
@@ -355,7 +350,6 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
                     const Divider(height: 32),
 
-                    // SEÇÃO FOTO
                     Row(
                       children: [
                         const Icon(Icons.photo_camera, color: Colors.blue),
@@ -419,7 +413,6 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
                     const Divider(height: 32),
 
-                    // SEÇÃO LOCALIZAÇÃO
                     Row(
                       children: [
                         const Icon(Icons.location_on, color: Colors.blue),
@@ -492,7 +485,6 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
                     const SizedBox(height: 8),
 
-                    // Botão Cancelar
                     OutlinedButton.icon(
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(Icons.cancel),
