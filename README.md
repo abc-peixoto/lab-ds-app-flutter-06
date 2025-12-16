@@ -82,6 +82,10 @@ flutter run
 - Flutter SDK 3.0+
 - Dart 3.0+
 
+## Vídeo
+
+[lab-ds-offline-first](https://drive.google.com/file/d/1-Qa6uEzGXpOrN0v5YSd-CdTBtLFZPTLF/view?usp=drivesdk)
+
 ## 📝 Licença
 
 MIT
